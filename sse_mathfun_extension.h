@@ -60,14 +60,15 @@ atan2_ps max deviation is < 2.5e-7
   (this is the zlib license)
 */
 
+/* Modified by Łukasz Stalmirski, 2019
+  1. Added inline specifiers to the functions
+  2. Removed USE_SSE2 requirement
+*/
+
 #pragma once
 
 #ifndef _SSE_MATHFUN_EXTENSION_H_INCLUDED_
 #define _SSE_MATHFUN_EXTENSION_H_INCLUDED_
-
-#ifndef USE_SSE2
-#error sse1 & mmx version not implemented
-#endif
 
 #ifdef _MSC_VER
 #pragma warning( push )
@@ -77,6 +78,7 @@ atan2_ps max deviation is < 2.5e-7
 #pragma warning( disable : 4305 )
 #endif
 
+#define USE_SSE2
 #include "sse_mathfun.h"
 
 _PS_CONST( 0, 0 );
@@ -92,14 +94,10 @@ _PS_CONST( tancof_p5, 3.33331568548E-1 );
 
 _PS_CONST( tancot_eps, 1.0e-4 );
 
-v4sf tancot_ps( v4sf x, int cotFlag )
+inline v4sf tancot_ps( v4sf x, int cotFlag )
 {
 	v4sf xmm1, xmm2 = _mm_setzero_ps(), xmm3, sign_bit, y;
-
-#ifdef USE_SSE2
 	v4si emm2;
-#else
-#endif
 	sign_bit = x;
 	/* take the absolute value */
 	x = _mm_and_ps( x, *(v4sf*)_ps_inv_sign_mask );
@@ -109,7 +107,6 @@ v4sf tancot_ps( v4sf x, int cotFlag )
 	/* scale by 4/Pi */
 	y = _mm_mul_ps( x, *(v4sf*)_ps_cephes_FOPI );
 
-#ifdef USE_SSE2
 	/* store the integer part of y in mm0 */
 	emm2 = _mm_cvttps_epi32( y );
 	/* j=(j+1) & (~1) (see the cephes sources) */
@@ -121,8 +118,7 @@ v4sf tancot_ps( v4sf x, int cotFlag )
 	emm2 = _mm_cmpeq_epi32( emm2, _mm_setzero_si128() );
 
 	v4sf poly_mask = _mm_castsi128_ps( emm2 );
-#else
-#endif
+	
 	/* The magic pass: "Extended precision modular arithmetic"
 	   x = ((x - y * DP1) - y * DP2) - y * DP3; */
 	xmm1 = *(v4sf*)_ps_minus_cephes_DP1;
@@ -177,9 +173,9 @@ v4sf tancot_ps( v4sf x, int cotFlag )
 	return y;
 }
 
-v4sf tan_ps( v4sf x ) { return tancot_ps( x, 0 ); }
+inline v4sf tan_ps( v4sf x ) { return tancot_ps( x, 0 ); }
 
-v4sf cot_ps( v4sf x ) { return tancot_ps( x, 1 ); }
+inline v4sf cot_ps( v4sf x ) { return tancot_ps( x, 1 ); }
 
 _PS_CONST( atanrange_hi, 2.414213562373095 );
 _PS_CONST( atanrange_lo, 0.4142135623730950 );
@@ -194,7 +190,7 @@ _PS_CONST( atancof_p1, 1.38776856032E-1 );
 _PS_CONST( atancof_p2, 1.99777106478E-1 );
 _PS_CONST( atancof_p3, 3.33329491539E-1 );
 
-v4sf atan_ps( v4sf x )
+inline v4sf atan_ps( v4sf x )
 {
 	v4sf sign_bit, y;
 
@@ -205,7 +201,6 @@ v4sf atan_ps( v4sf x )
 	sign_bit = _mm_and_ps( sign_bit, *(v4sf*)_ps_sign_mask );
 
 /* range reduction, init x and y depending on range */
-#ifdef USE_SSE2
 	/* x > 2.414213562373095 */
 	v4sf cmp0 = _mm_cmpgt_ps( x, *(v4sf*)_ps_atanrange_hi );
 	/* x > 0.4142135623730950 */
@@ -234,9 +229,6 @@ v4sf atan_ps( v4sf x )
 	x = _mm_or_ps( x2, x );
 
 	y = _mm_or_ps( y0, y1 );
-#else
-#error sse1 & mmx version not implemented
-#endif
 
 	v4sf zz = _mm_mul_ps( x, x );
 	v4sf acc = *(v4sf*)_ps_atancof_p0;
@@ -257,7 +249,7 @@ v4sf atan_ps( v4sf x )
 	return y;
 }
 
-v4sf atan2_ps( v4sf y, v4sf x )
+inline v4sf atan2_ps( v4sf y, v4sf x )
 {
 	v4sf x_eq_0 = _mm_cmpeq_ps( x, *(v4sf*)_ps_0 );
 	v4sf x_gt_0 = _mm_cmpgt_ps( x, *(v4sf*)_ps_0 );
@@ -306,13 +298,13 @@ v4sf atan2_ps( v4sf y, v4sf x )
 }
 
 /* for convenience of calling simd sqrt */
-float sqrt_ps( float x )
+inline float sqrt_ps( float x )
 {
 	v4sf sse_value = _mm_set_ps1( x );
 	sse_value = _mm_sqrt_ps( sse_value );
 	return _mm_cvtss_f32( sse_value );
 }
-float rsqrt_ps( float x )
+inline float rsqrt_ps( float x )
 {
 	v4sf sse_value = _mm_set_ps1( x );
 	sse_value = _mm_rsqrt_ps( sse_value );
@@ -320,7 +312,7 @@ float rsqrt_ps( float x )
 }
 
 /* atan2 implementation using atan, used as a reference to implement atan2_ps */
-float atan2_ref( float y, float x )
+inline float atan2_ref( float y, float x )
 {
 	if( x == 0.0f ) {
 		if( y == 0.0f ) {
